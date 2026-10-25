@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apuração ao vivo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect x=%271%27 y=%276%27 width=%277%27 height=%274%27 rx=%272%27 fill=%27%23d6283f%27/%3E%3Crect x=%278%27 y=%276%27 width=%277%27 height=%274%27 rx=%272%27 fill=%27%232b63d9%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --fg: #1c1b19; --muted: #6d6b66; --line: #e4e2dc; --grid: #edebe6;
+  --track: #ebe9e3; --lula: #d6283f; --flavio: #2b63d9; --ok: #1f9d55; --warn: #c27c0e;
+  --sans: "Inter", system-ui, sans-serif; --serif: "Source Serif 4", Georgia, serif;
+  --r: 10px; --gap: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #141413; --panel: #1e1e1c; --fg: #ecebe6; --muted: #9b9993; --line: #34332f; --grid: #2a2926;
+    --track: #2e2d2a; --lula: #f0566a; --flavio: #5c8ef2; --ok: #3ccf7f; --warn: #e5a53a; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 16px 40px; display: grid; gap: 20px; }
+header { display: grid; gap: 10px; max-width: 52rem; }
+h1 { margin: 0; font: 400 clamp(1.6rem, 4vw, 2.3rem)/1.1 var(--serif); }
+.status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+.status.erro .dot { background: var(--warn); }
+@media (prefers-reduced-motion: no-preference) {
+  .dot { animation: pulso 2s ease-in-out infinite; }
+  .ar .bar span, .ar .bar-l, .ar .bar-f { transition: width .6s ease-out; }
+}
+@keyframes pulso { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.lede { margin: 0; font-size: 16px; }
+.lede b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.legenda { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.sw-l { background: var(--lula); } .sw-f { background: var(--flavio); }
+.grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.card { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+h2 { margin: 0; font-size: 17px; font-weight: 600; }
+h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.nota { margin: 0; font-size: 13px; color: var(--muted); }
+ul.lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 18px; }
+.ar { display: grid; gap: 5px; }
+.ar-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+.ar-nome { font-weight: 500; }
+.ar-cnt { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ar-adv { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.bar { position: relative; display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--track); }
+.bar-l { width: 0; background: var(--lula); }
+.bar-f { width: 0; margin-left: auto; background: var(--flavio); }
+.bar-mid { position: absolute; top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; background: var(--panel); }
+.ar-bot { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
+.pc { color: var(--fg); font-size: 15px; font-variant-numeric: tabular-nums; }
+.pc.lider { font-weight: 600; }
+.ar-br .bar { height: 14px; }
+.ar-br .pc { font: 400 clamp(1.5rem, 4vw, 2rem)/1.1 var(--serif); }
+.ar-br .ar-nome { font-size: 17px; }
+.proj-br { margin: 2px 0 0; font-size: 14px; }
+.proj-br b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ar-uf .bar { height: 7px; }
+.ar-uf .pc { font-size: 13px; }
+.ar-uf .ar-nome { font-size: 14px; }
+.regs { display: grid; gap: 24px 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr)); margin-top: 10px; }
+.reg-bloco h3 { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.reg-bloco ul.lista { gap: 12px; }
+.mapa { position: relative; width: 100%; max-width: 34rem; margin: 8px auto 0; }
+.mapa svg { display: block; width: 100%; height: auto; }
+.rg { stroke: var(--panel); stroke-width: 1.5; stroke-linejoin: round; cursor: pointer; outline: none; }
+.rg.on, .rg:focus-visible { stroke: var(--fg); stroke-width: 2; }
+.lbl { font: 13px var(--sans); fill: var(--fg); stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
+.lbl-n { font-weight: 600; } .lbl-v { font-variant-numeric: tabular-nums; }
+.tip { position: absolute; z-index: 2; top: 0; left: 0; min-width: 11rem; pointer-events: none; opacity: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.14); padding: 6px 10px; font-size: 13px; line-height: 1.45; }
+.tip.on { opacity: 1; }
+.tip-h { color: var(--muted); }
+.tip-r { display: flex; align-items: center; gap: 6px; }
+.tip-r span:last-child { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.controles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; font-size: 14px; }
+select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 28px 6px 10px; max-width: 100%; }
+.paineis { display: grid; gap: 20px 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); margin-top: 12px; }
+.pj { min-width: 0; display: grid; gap: 4px; align-content: start; }
+.pj-sub { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pj-box { position: relative; min-height: 230px; }
+.pj-box svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pj-pe { margin: 0; font-size: 14px; }
+.pj-pe b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.veredito { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 15px; }
+.veredito b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.eixo { font: 12px var(--sans); fill: var(--muted); font-variant-numeric: tabular-nums; }
+.grade { stroke: var(--grid); stroke-width: 1; }
+.base { stroke: var(--line); stroke-width: 1; }
+.ln { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.ln-l { stroke: var(--lula); } .ln-f { stroke: var(--flavio); }
+.ln-proj { stroke-dasharray: 5 5; stroke-linecap: butt; stroke-width: 2; }
+.ln-ini { opacity: .35; }
+.agora { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.fim { font: 600 12px var(--sans); font-variant-numeric: tabular-nums; }
+.fim-l { fill: var(--lula); } .fim-f { fill: var(--flavio); }
+.sem { display: flex; align-items: center; justify-content: center; min-height: 230px; font-size: 13px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); max-width: 52rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="status" id="status"><span class="dot"></span><span id="status-txt">Conectando ao TSE…</span></span>
+    <h1>Apuração do 2º turno para presidente</h1>
+    <p class="lede" id="lede">Com <b id="ap-br">—</b>% das urnas apuradas no país, <span id="resumo">—</span></p>
+    <div class="legenda"><span><i class="sw sw-l"></i>Lula (PT)</span><span><i class="sw sw-f"></i>Flávio Bolsonaro (PL)</span><span>No mapa, tom mais forte = vantagem maior</span></div>
+    <ul class="lista" id="brasil"></ul>
+    <p class="proj-br" id="proj-br"></p>
+  </header>
+
+  <div class="grid">
+    <section class="card" id="mapa-card">
+      <h2>Quem lidera em cada região</h2>
+      <p class="nota">Toque numa região para ver os números dela. Contornos simplificados.</p>
+      <div class="mapa" id="mapa"></div>
+    </section>
+    <section class="card" id="regioes-card">
+      <h2>Votos válidos por região</h2>
+      <p class="nota">Ao lado do nome, quanto das urnas da região já foi apurado.</p>
+      <ul class="lista" id="regioes"></ul>
+    </section>
+  </div>
+
+  <section class="card" id="estados-card">
+    <h2>Estados, por região</h2>
+    <p class="nota">Em cada região, do maior para o menor eleitorado.</p>
+    <div class="regs" id="estados"></div>
+  </section>
+
+  <section class="card" id="projecao-card">
+    <h2>Projeção até 100% das urnas</h2>
+    <p class="nota">Linha cheia: votos já apurados, ponto a ponto, desde que a coleta começou. Tracejada: projeção, supondo que as urnas que faltam em cada estado votem como as já apuradas nele, com o mesmo comparecimento. É uma conta, não uma previsão.</p>
+    <div class="controles">
+      <label for="sel-a">Comparar</label><select id="sel-a"></select>
+      <label for="sel-b">com</label><select id="sel-b"></select>
+    </div>
+    <div class="paineis" id="paineis"></div>
+    <p class="veredito" id="veredito"></p>
+  </section>
+
+  <footer>Dados do TSE (resultados.tse.jus.br), lidos pelo seu navegador a cada 5 segundos; o TSE publica número novo a cada 30 segundos, em média. Percentuais sobre os votos válidos. As regiões somam os votos dos seus estados; o total do Brasil inclui o voto no exterior.</footer>
+</div>
+
+<script>
+const REGIOES = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
+const J1 = [-46.1, -1.15], J2 = [-46.2, -13.3], J3 = [-46.0, -14.75], J4 = [-53.05, -22.6];
+  const J5 = [-54.25, -24.05], J6 = [-48.05, -25.25], J7 = [-39.68, -18.35], J8 = [-60.4, -13.5];
+  const NORTE_NORDESTE = [J1, [-46.35, -1.9], [-46.6, -2.7], [-47.0, -3.7], [-47.65, -4.35], [-48.0, -4.9], [-48.35, -5.3], [-47.49, -5.53], [-47.4, -6.0], [-47.45, -6.55], [-47.45, -7.3], [-46.9, -7.9], [-46.4, -8.6], [-46.1, -9.4], [-45.95, -10.25], [-46.0, -10.5], [-46.3, -11.0], [-46.25, -12.0], [-46.25, -12.8], J2];
+  const NORTE_CENTRO = [J8, [-60.05, -12.9], [-60.1, -12.2], [-60.9, -11.6], [-61.5, -10.9], [-61.55, -10.0], [-61.6, -8.85], [-60.5, -8.6], [-59.0, -8.0], [-58.15, -7.35], [-57.2, -8.4], [-56.7, -9.2], [-55.0, -9.3], [-53.0, -9.4], [-51.5, -9.5], [-50.3, -9.85], [-50.55, -10.6], [-50.65, -11.6], [-50.6, -12.4], [-50.65, -12.85], [-49.9, -12.95], [-49.0, -12.75], [-48.3, -12.9], [-47.5, -13.1], J2];
+  const NORDESTE_CENTRO = [J2, [-45.95, -14.0], J3];
+  const NORDESTE_SUDESTE = [J3, [-45.2, -14.55], [-44.4, -14.25], [-43.7, -14.5], [-42.85, -14.9], [-42.2, -15.1], [-41.4, -15.6], [-40.6, -15.85], [-39.95, -16.0], [-40.2, -16.6], [-40.3, -17.3], [-40.25, -17.95], [-40.0, -18.15], J7];
+  const CENTRO_SUDESTE = [J3, [-46.5, -15.25], [-46.9, -15.7], [-47.3, -16.1], [-47.4, -16.8], [-47.3, -17.5], [-47.7, -18.1], [-48.3, -18.4], [-49.2, -18.4], [-50.0, -18.6], [-50.5, -18.9], [-50.95, -19.45], [-51.05, -20.05], [-51.6, -20.6], [-52.0, -21.3], [-52.1, -21.8], [-52.6, -22.3], J4];
+  const SUDESTE_SUL = [J4, [-52.2, -22.65], [-51.4, -22.65], [-50.6, -22.85], [-49.9, -22.95], [-49.6, -23.4], [-49.4, -24.0], [-49.2, -24.35], [-48.65, -24.6], [-48.3, -24.85], J6];
+  const CENTRO_SUL = [J4, [-53.6, -23.2], [-54.0, -23.7], J5];
+  const BORDA_NORTE = [J1, [-46.8, -0.95], [-47.4, -0.6], [-48.2, -0.75], [-48.45, -0.3], [-49.2, -0.05], [-50.0, -0.1], [-50.5, -0.5], [-51.05, -0.05], [-50.6, 0.6], [-50.05, 1.0], [-49.95, 1.7], [-50.5, 2.2], [-50.9, 2.7], [-51.2, 3.7], [-51.35, 4.35], [-51.65, 4.1], [-52.3, 3.1], [-52.95, 2.2], [-54.0, 2.3], [-55.0, 2.5], [-56.0, 2.0], [-56.5, 1.9], [-57.5, 1.5], [-58.4, 1.3], [-58.9, 1.2], [-59.5, 1.7], [-59.7, 2.5], [-59.85, 3.4], [-60.0, 4.5], [-60.2, 5.25], [-60.73, 5.2], [-61.15, 4.5], [-62.3, 4.1], [-63.2, 3.8], [-64.0, 3.0], [-64.6, 2.2], [-65.3, 1.0], [-66.0, 0.8], [-66.85, 1.2], [-68.0, 1.7], [-69.8, 1.1], [-70.05, 0.6], [-69.6, -0.2], [-69.45, -1.2], [-69.95, -4.25], [-70.7, -4.6], [-72.0, -5.0], [-72.9, -5.6], [-73.4, -6.3], [-73.95, -7.3], [-74.0, -7.55], [-73.7, -8.6], [-72.9, -9.1], [-72.2, -10.0], [-70.6, -9.6], [-70.6, -11.0], [-69.6, -10.95], [-68.7, -11.0], [-68.3, -10.7], [-67.2, -10.35], [-66.4, -9.8], [-65.4, -9.7], [-65.35, -10.8], [-65.25, -11.5], [-64.9, -12.0], [-64.0, -12.5], [-62.8, -13.0], [-61.9, -13.5], [-61.05, -13.5], J8];
+  const BORDA_NORDESTE = [J1, [-45.3, -1.4], [-44.6, -1.75], [-44.4, -2.3], [-44.0, -2.45], [-43.4, -2.4], [-42.5, -2.6], [-41.8, -2.85], [-41.3, -2.9], [-40.5, -2.85], [-39.6, -3.1], [-38.95, -3.5], [-38.5, -3.72], [-37.8, -4.3], [-37.25, -4.85], [-36.5, -5.05], [-35.8, -5.1], [-35.48, -5.15], [-35.2, -5.8], [-35.0, -6.5], [-34.8, -7.15], [-34.85, -7.55], [-34.9, -8.1], [-35.05, -8.6], [-35.15, -8.9], [-35.4, -9.3], [-35.75, -9.7], [-36.1, -10.1], [-36.4, -10.5], [-37.05, -10.95], [-37.4, -11.5], [-37.7, -12.0], [-38.1, -12.5], [-38.5, -13.0], [-38.95, -13.4], [-39.0, -14.0], [-39.05, -14.8], [-38.95, -15.6], [-39.05, -16.4], [-39.2, -17.0], [-39.15, -17.6], [-39.4, -18.0], J7];
+  const BORDA_SUDESTE = [J7, [-39.75, -18.6], [-39.8, -19.3], [-40.05, -19.9], [-40.3, -20.3], [-40.55, -20.75], [-40.85, -21.05], [-40.95, -21.3], [-41.05, -21.7], [-41.0, -22.0], [-41.5, -22.35], [-42.0, -22.9], [-42.6, -22.95], [-43.2, -22.98], [-43.6, -23.05], [-44.0, -23.0], [-44.35, -23.2], [-44.7, -23.35], [-45.1, -23.5], [-45.4, -23.8], [-46.0, -23.9], [-46.35, -24.0], [-46.9, -24.3], [-47.5, -24.7], [-47.9, -25.0], J6];
+  const BORDA_SUL = [J6, [-48.45, -25.55], [-48.55, -25.9], [-48.6, -26.25], [-48.6, -26.7], [-48.55, -27.3], [-48.45, -27.6], [-48.65, -28.2], [-48.8, -28.5], [-49.4, -29.0], [-49.75, -29.35], [-50.15, -29.9], [-50.55, -30.6], [-51.0, -31.2], [-51.6, -31.7], [-52.1, -32.15], [-52.6, -32.8], [-53.1, -33.4], [-53.4, -33.75], [-53.55, -33.3], [-53.35, -32.6], [-53.8, -32.15], [-54.2, -31.85], [-54.6, -31.5], [-55.0, -31.2], [-55.5, -30.9], [-56.0, -30.6], [-56.8, -30.2], [-57.6, -30.2], [-57.1, -29.75], [-56.6, -29.2], [-56.0, -28.65], [-55.3, -27.95], [-54.6, -27.5], [-53.85, -27.15], [-53.65, -26.6], [-53.65, -26.25], [-53.85, -25.75], [-54.6, -25.6], [-54.45, -25.0], [-54.35, -24.5], J5];
+  const BORDA_CENTRO = [J5, [-55.0, -23.95], [-55.45, -23.9], [-55.55, -23.3], [-55.73, -22.55], [-56.5, -22.1], [-57.0, -22.05], [-57.9, -21.7], [-57.9, -20.8], [-57.85, -20.0], [-57.65, -19.0], [-57.7, -18.2], [-57.8, -17.5], [-58.4, -16.3], [-60.15, -16.25], [-60.2, -15.1], J8];
+
+  const rev = (a) => a.slice().reverse();
+  const join = (...parts) => parts.reduce((acc, p) => acc.concat(acc.length ? p.slice(1) : p), []);
+  const CONTORNOS = {
+    'Norte': join(BORDA_NORTE, NORTE_CENTRO, rev(NORTE_NORDESTE)),
+    'Nordeste': join(BORDA_NORDESTE, rev(NORDESTE_SUDESTE), rev(NORDESTE_CENTRO), rev(NORTE_NORDESTE)),
+    'Centro-Oeste': join(NORTE_CENTRO, NORDESTE_CENTRO, CENTRO_SUDESTE, CENTRO_SUL, BORDA_CENTRO),
+    'Sudeste': join(BORDA_SUDESTE, rev(SUDESTE_SUL), rev(CENTRO_SUDESTE), NORDESTE_SUDESTE),
+    'Sul': join(BORDA_SUL, rev(CENTRO_SUL), SUDESTE_SUL),
+  };
+  const ROTULOS = {
+    'Norte': [-61.5, -4.0],
+    'Nordeste': [-41.2, -7.8],
+    'Centro-Oeste': [-53.6, -14.6],
+    'Sudeste': [-45.6, -20.3],
+    'Sul': [-51.8, -28.0],
+  };
+
+  const rad = Math.PI / 180;
+  const merc = ([lon, lat]) => [lon * rad, -Math.log(Math.tan(Math.PI / 4 + (lat * rad) / 2))];
+  const PROJ = Object.fromEntries(Object.entries(CONTORNOS).map(([k, pts]) => [k, pts.map(merc)]));
+  const todos = Object.values(PROJ).flat();
+  const X0 = d3.min(todos, (p) => p[0]);
+  const X1 = d3.max(todos, (p) => p[0]);
+  const Y0 = d3.min(todos, (p) => p[1]);
+  const Y1 = d3.max(todos, (p) => p[1]);
+const f2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const f1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fInt = new Intl.NumberFormat('pt-BR');
+const comp = (n) => {
+  const a = Math.abs(n);
+  if (a >= 1e6) return `${f1.format(n / 1e6)} mi`;
+  if (a >= 1e3) return `${fInt.format(Math.round(n / 1e3))} mil`;
+  return fInt.format(Math.round(n));
+};
+const CURTO = { Lula: 'Lula', 'Flávio': 'Flávio' };
+
+const BASE = 'https://resultados.tse.jus.br/oficial/ele2026/6258/dados';
+const UFS_REG = {
+  'Norte': ['ac', 'am', 'ap', 'pa', 'ro', 'rr', 'to'],
+  'Nordeste': ['al', 'ba', 'ce', 'ma', 'pb', 'pe', 'pi', 'rn', 'se'],
+  'Centro-Oeste': ['df', 'go', 'ms', 'mt'],
+  'Sudeste': ['es', 'mg', 'rj', 'sp'],
+  'Sul': ['pr', 'rs', 'sc'],
+};
+const NOME = { ac: 'Acre', al: 'Alagoas', am: 'Amazonas', ap: 'Amapá', ba: 'Bahia', ce: 'Ceará', df: 'Distrito Federal',
+  es: 'Espírito Santo', go: 'Goiás', ma: 'Maranhão', mg: 'Minas Gerais', ms: 'Mato Grosso do Sul', mt: 'Mato Grosso',
+  pa: 'Pará', pb: 'Paraíba', pe: 'Pernambuco', pi: 'Piauí', pr: 'Paraná', rj: 'Rio de Janeiro', rn: 'Rio Grande do Norte',
+  ro: 'Rondônia', rr: 'Roraima', rs: 'Rio Grande do Sul', sc: 'Santa Catarina', se: 'Sergipe', sp: 'São Paulo', to: 'Tocantins' };
+const OUTRAS = ['zz', ...Object.values(UFS_REG).flat()];
+const CHAVE_HIST = 'apuracao-hist-v1';
+
+let atual = [], hist = [], ultima = null;
+const vistos = new Set();
+let sel = { a: 'Nordeste', b: 'Sudeste' };
+try { const s = JSON.parse(localStorage.getItem('apuracao-sel')); if (s && s.a && s.b) sel = s; } catch (e) {}
+
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+const lider = (r) => (r.lula_votos > r.flavio_votos ? 'Lula' : r.flavio_votos > r.lula_votos ? 'Flávio' : 'Empate');
+const lista = (ns) => ns.map((n) => `no ${n}`).reduce((s, x, i, arr) => (i === 0 ? x : i === arr.length - 1 ? `${s} e ${x}` : `${s}, ${x}`), '');
+
+function projetar(rows) {
+  const base = rows.filter((r) => r.nivel === 'estado' || r.nivel === 'exterior');
+  const soma = (rs) => rs.reduce((acc, r) => {
+    if (r.eleitores_apurados > 0) {
+      const k = r.eleitores / r.eleitores_apurados;
+      acc.l += r.lula_votos * k;
+      acc.f += r.flavio_votos * k;
+    } else acc.falta += 1;
+    return acc;
+  }, { l: 0, f: 0, falta: 0 });
+  const m = new Map([['Brasil', soma(base)]]);
+  REGIOES.forEach((g) => m.set(g, soma(base.filter((r) => r.grupo === g))));
+  base.forEach((r) => m.set(r.area, soma([r])));
+  return m;
+}
+
+function linhaArea(r, tam) {
+  const li = el('li', `ar ar-${tam}`);
+  const top = el('div', 'ar-top');
+  const L = lider(r);
+  top.append(el('span', 'ar-nome', r.area), el('span', 'ar-cnt', `${f2.format(r.apurado_pct)}% apurado${tam === 'br' ? ' · inclui o exterior' : ''}`));
+  const adv = el('span', 'ar-adv');
+  if (r.lula_pct != null && L !== 'Empate') {
+    adv.append(el('i', `sw ${L === 'Lula' ? 'sw-l' : 'sw-f'}`), document.createTextNode(`${L} +${f2.format(Math.abs(r.lula_pct - r.flavio_pct))} p.p.`));
+  } else if (r.lula_pct != null) adv.textContent = 'Empate';
+  top.append(adv);
+  const bar = el('div', 'bar');
+  const bl = el('span', 'bar-l'); bl.style.width = `${r.lula_pct || 0}%`;
+  const bf = el('span', 'bar-f'); bf.style.width = `${r.flavio_pct || 0}%`;
+  bar.append(bl, bf, el('span', 'bar-mid'));
+  const bot = el('div', 'ar-bot');
+  const pc = (v, on) => el('span', `pc${on ? ' lider' : ''}`, v == null ? '—' : `${f2.format(v)}%`);
+  if (tam === 'uf') bot.append(pc(r.lula_pct, L === 'Lula'), pc(r.flavio_pct, L === 'Flávio'));
+  else {
+    const a = el('span'); a.append('Lula ', pc(r.lula_pct, L === 'Lula'));
+    const b = el('span'); b.append(pc(r.flavio_pct, L === 'Flávio'), ' Flávio Bolsonaro');
+    bot.append(a, b);
+  }
+  li.append(top, bar, bot);
+  return li;
+}
+
+function cabecalho(por, proj) {
+  const br = por.get('Brasil');
+  document.getElementById('ap-br').textContent = f2.format(br.apurado_pct);
+  const de = (q) => REGIOES.filter((n) => por.get(n) && lider(por.get(n)) === q);
+  const L = de('Lula'), F = de('Flávio');
+  let t = '';
+  if (L.length && F.length) t = `Lula lidera ${lista(L)}; Flávio Bolsonaro, ${lista(F)}.`;
+  else if (L.length) t = L.length === 5 ? 'Lula lidera em todas as regiões.' : `Lula lidera ${lista(L)}.`;
+  else if (F.length) t = F.length === 5 ? 'Flávio Bolsonaro lidera em todas as regiões.' : `Flávio Bolsonaro lidera ${lista(F)}.`;
+  document.getElementById('resumo').textContent = t;
+  document.getElementById('brasil').replaceChildren(linhaArea(br, 'br'));
+  const p = proj.get('Brasil'), pe = document.getElementById('proj-br');
+  pe.replaceChildren();
+  if (p && !p.falta && p.l + p.f > 0) {
+    const tot = p.l + p.f, s = p.l - p.f;
+    pe.append('Projeção para 100% das urnas: ');
+    pe.append(el('b', '', `Lula ${f2.format((100 * p.l) / tot)}%`), ' × ', el('b', '', `${f2.format((100 * p.f) / tot)}% Flávio`));
+    pe.append(`, saldo de ${comp(Math.abs(s))} votos para ${s >= 0 ? 'Lula' : 'Flávio Bolsonaro'}.`);
+  }
+}
+
+function regioes(por) {
+  document.getElementById('regioes').replaceChildren(...REGIOES.map((n) => linhaArea(por.get(n), 'rg')));
+}
+
+function estados(por) {
+  const box = document.getElementById('estados');
+  box.replaceChildren(...REGIOES.map((g) => {
+    const d = el('div', 'reg-bloco');
+    d.append(el('h3', '', g));
+    const ul = el('ul', 'lista');
+    atual.filter((r) => r.nivel === 'estado' && r.grupo === g)
+      .sort((a, b) => b.eleitores - a.eleitores)
+      .forEach((r) => ul.append(linhaArea(r, 'uf')));
+    d.append(ul);
+    return d;
+  }));
+}
+
+function mapa(por) {
+  const box = document.getElementById('mapa');
+  box.replaceChildren();
+  const W = Math.max(240, Math.round(box.clientWidth || 340)), pad = 6;
+  const k = (W - pad * 2) / (X1 - X0), H = Math.round((Y1 - Y0) * k + pad * 2);
+  const px = (p) => [(p[0] - X0) * k + pad, (p[1] - Y0) * k + pad];
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const gR = svg.append('g'), gL = svg.append('g');
+  const tip = el('div', 'tip'); box.appendChild(tip);
+  const linhaTip = (cls, nome, v) => { const d = el('div', 'tip-r'); d.append(el('i', `sw ${cls}`), el('span', '', nome), el('span', '', `${f2.format(v)}%`)); return d; };
+  const esconder = () => { tip.classList.remove('on'); gR.selectAll('.rg').classed('on', false); };
+  const mostrar = (nome, ev) => {
+    const r = por.get(nome);
+    gR.selectAll('.rg').classed('on', function () { return this.dataset.reg === nome; });
+    tip.replaceChildren(el('div', 'tip-h', `${nome} · ${f2.format(r.apurado_pct)}% apurado`), linhaTip('sw-l', 'Lula', r.lula_pct), linhaTip('sw-f', 'Flávio Bolsonaro', r.flavio_pct));
+    tip.classList.add('on');
+    const b = box.getBoundingClientRect();
+    let left = ev.clientX - b.left + 12, top = ev.clientY - b.top + 12;
+    if (left + tip.offsetWidth > b.width) left = Math.max(0, ev.clientX - b.left - tip.offsetWidth - 12);
+    if (top + tip.offsetHeight > b.height) top = Math.max(0, ev.clientY - b.top - tip.offsetHeight - 12);
+    tip.style.left = `${left}px`; tip.style.top = `${top}px`;
+  };
+  REGIOES.forEach((nome) => {
+    const r = por.get(nome);
+    const L = lider(r), m = Math.abs(r.lula_pct - r.flavio_pct);
+    const op = L === 'Empate' ? 1 : 0.45 + 0.55 * Math.min(m / 25, 1);
+    const cor = L === 'Lula' ? 'var(--lula)' : L === 'Flávio' ? 'var(--flavio)' : 'var(--muted)';
+    gR.append('path').attr('class', 'rg').attr('data-reg', nome)
+      .attr('d', `M${PROJ[nome].map((p) => px(p).map((v) => v.toFixed(1)).join(',')).join('L')}Z`)
+      .style('fill', cor).style('fill-opacity', op.toFixed(2))
+      .on('pointermove', (ev) => mostrar(nome, ev)).on('pointerdown', (ev) => mostrar(nome, ev));
+    const [lx, ly] = px(merc(ROTULOS[nome]));
+    const g = gL.append('g');
+    const tN = g.append('text').attr('class', 'lbl lbl-n').attr('text-anchor', 'middle').attr('dy', '-0.25em').text(nome);
+    const tV = g.append('text').attr('class', 'lbl lbl-v').attr('text-anchor', 'middle').attr('dy', '1.05em')
+      .text(L === 'Lula' ? `Lula ${f1.format(r.lula_pct)}%` : L === 'Flávio' ? `Flávio ${f1.format(r.flavio_pct)}%` : 'Empate');
+    const w = Math.max(tN.node().getComputedTextLength(), tV.node().getComputedTextLength());
+    g.attr('transform', `translate(${Math.min(Math.max(lx, w / 2 + 2), W - w / 2 - 2).toFixed(1)},${ly.toFixed(1)})`);
+  });
+  svg.on('pointerleave', (ev) => { if (ev.pointerType === 'mouse') esconder(); });
+}
+
+function opcoes() {
+  const sa = document.getElementById('sel-a'), sb = document.getElementById('sel-b');
+  if (sa.options.length) return;
+  [sa, sb].forEach((s) => {
+    const grupo = (rotulo, nomes) => { const og = el('optgroup'); og.label = rotulo; nomes.forEach((n) => og.append(new Option(n, n))); s.append(og); };
+    grupo('País', ['Brasil', 'Exterior']);
+    grupo('Regiões', REGIOES);
+    REGIOES.forEach((g) => grupo(`Estados do ${g}`, atual.filter((r) => r.nivel === 'estado' && r.grupo === g).map((r) => r.area).sort((a, b) => a.localeCompare(b, 'pt-BR'))));
+  });
+  sa.value = sel.a; sb.value = sel.b;
+  const mudou = () => {
+    sel = { a: sa.value, b: sb.value };
+    try { localStorage.setItem('apuracao-sel', JSON.stringify(sel)); } catch (e) {}
+    desenhar();
+  };
+  sa.addEventListener('change', mudou); sb.addEventListener('change', mudou);
+}
+
+function grafico(box, area, pontos, pj, yMax) {
+  box.replaceChildren();
+  const r = atual.find((x) => x.area === area);
+  if (!r || !(r.apurado_pct > 0)) { box.append(el('div', 'sem', 'Ainda sem urnas apuradas aqui.')); return; }
+  const W = Math.max(260, Math.round(box.clientWidth)), H = 230;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const pts = [{ x: 0, l: 0, f: 0, hora: '' }]
+    .concat(pontos.map((h) => ({ x: h.apurado_pct, l: h.lula_votos, f: h.flavio_votos, hora: h.hora })))
+    .sort((a, b) => a.x - b.x || a.l - b.l);
+  const ult = pts[pts.length - 1];
+  const fim = pj && !pj.falta && ult.x > 0 && ult.x < 100 ? { x: 100, l: pj.l, f: pj.f, proj: true } : null;
+  const y = d3.scaleLinear([0, yMax], [H - 24, 10]).nice();
+  const ticks = y.ticks(4);
+  const medir = (txt, cls) => { const t = svg.append('text').attr('class', cls).text(txt); const w = t.node().getComputedTextLength(); t.remove(); return w; };
+  const tw = d3.max(ticks, (t) => medir(comp(t), 'eixo'));
+  const labL = fim ? `Lula ${comp(fim.l)}` : '', labF = fim ? `Flávio ${comp(fim.f)}` : '';
+  const ew = fim ? Math.max(medir(labL, 'fim'), medir(labF, 'fim')) : 0;
+  const m = { l: tw + 8, r: (fim ? ew + 10 : 8), t: 10, b: 24 };
+  const x = d3.scaleLinear([0, 100], [m.l, W - m.r]);
+  y.range([H - m.b, m.t]);
+  ticks.forEach((t) => {
+    svg.append('line').attr('class', t === 0 ? 'base' : 'grade').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(t)).attr('y2', y(t));
+    svg.append('text').attr('class', 'eixo').attr('x', m.l - 6).attr('y', y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text(comp(t));
+  });
+  (W - m.l - m.r < 320 ? [0, 50, 100] : [0, 25, 50, 75, 100]).forEach((t) => {
+    svg.append('text').attr('class', 'eixo').attr('x', x(t)).attr('y', H - 6).attr('text-anchor', t === 0 ? 'start' : t === 100 ? 'end' : 'middle').text(`${t}%`);
+  });
+  svg.append('line').attr('class', 'agora').attr('x1', x(ult.x)).attr('x2', x(ult.x)).attr('y1', m.t).attr('y2', H - m.b);
+  const line = d3.line().x((d) => x(d.x)).y((d) => y(d.v));
+  ['l', 'f'].forEach((k) => {
+    svg.append('path').attr('class', `ln ln-${k} ln-ini`).attr('d', line([pts[0], pts[1] || pts[0]].map((p) => ({ x: p.x, v: p[k] }))));
+    if (pts.length > 2) svg.append('path').attr('class', `ln ln-${k}`).attr('d', line(pts.slice(1).map((p) => ({ x: p.x, v: p[k] }))));
+    if (fim) svg.append('path').attr('class', `ln ln-${k} ln-proj`).attr('d', line([{ x: ult.x, v: ult[k] }, { x: 100, v: fim[k] }]));
+    svg.append('circle').attr('cx', x(ult.x)).attr('cy', y(ult[k])).attr('r', 3.5).style('fill', k === 'l' ? 'var(--lula)' : 'var(--flavio)');
+  });
+  if (fim) {
+    let yl = y(fim.l), yf = y(fim.f);
+    if (Math.abs(yl - yf) < 15) { const mid = (yl + yf) / 2, s = yl <= yf ? -1 : 1; yl = mid + s * 7.5; yf = mid - s * 7.5; }
+    svg.append('text').attr('class', 'fim fim-l').attr('x', x(100) + 6).attr('y', yl).attr('dy', '0.32em').text(labL);
+    svg.append('text').attr('class', 'fim fim-f').attr('x', x(100) + 6).attr('y', yf).attr('dy', '0.32em').text(labF);
+  }
+  const tip = el('div', 'tip'); box.appendChild(tip);
+  const dots = ['l', 'f'].map((k) => svg.append('circle').attr('r', 4.5).style('fill', 'var(--panel)').style('stroke', k === 'l' ? 'var(--lula)' : 'var(--flavio)').style('stroke-width', 2).style('opacity', 0));
+  const cand = pts.slice(1).concat(fim ? [fim] : []);
+  svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).style('fill', 'transparent')
+    .on('pointermove pointerdown', (ev) => {
+      const [mx] = d3.pointer(ev);
+      const xv = x.invert(mx);
+      const c = cand.reduce((b, p) => (Math.abs(p.x - xv) < Math.abs(b.x - xv) ? p : b), cand[0]);
+      dots[0].attr('cx', x(c.x)).attr('cy', y(c.l)).style('opacity', 1);
+      dots[1].attr('cx', x(c.x)).attr('cy', y(c.f)).style('opacity', 1);
+      const linhaTip = (cls, nome, v) => { const d = el('div', 'tip-r'); d.append(el('i', `sw ${cls}`), el('span', '', nome), el('span', '', fInt.format(Math.round(v)))); return d; };
+      tip.replaceChildren(el('div', 'tip-h', c.proj ? '100% das urnas · projeção' : `${f2.format(c.x)}% apurado · ${c.hora.slice(0, 5)}`), linhaTip('sw-l', 'Lula', c.l), linhaTip('sw-f', 'Flávio Bolsonaro', c.f));
+      tip.classList.add('on');
+      const bw = box.clientWidth, sc = bw / W;
+      let left = x(c.x) * sc + 12;
+      if (left + tip.offsetWidth > bw) left = Math.max(0, x(c.x) * sc - tip.offsetWidth - 12);
+      tip.style.left = `${left}px`; tip.style.top = `${Math.max(0, Math.min(y(c.l), y(c.f)) * sc - 10)}px`;
+    })
+    .on('pointerleave', () => { tip.classList.remove('on'); dots.forEach((d) => d.style('opacity', 0)); });
+}
+
+function projecao(proj) {
+  opcoes();
+  const areas = [sel.a, sel.b];
+  const maxDe = (a) => {
+    const p = proj.get(a) || { l: 0, f: 0 };
+    const hs = hist.filter((h) => h.area === a);
+    return Math.max(p.falta ? 0 : p.l, p.falta ? 0 : p.f, d3.max(hs, (h) => Math.max(h.lula_votos, h.flavio_votos)) || 0);
+  };
+  const yMax = Math.max(1, ...areas.map(maxDe)) * 1.04;
+  const box = document.getElementById('paineis');
+  box.replaceChildren();
+  const unicas = sel.a === sel.b ? [sel.a] : areas;
+  unicas.map((a) => {
+    const r = atual.find((x) => x.area === a);
+    const p = proj.get(a);
+    const d = el('div', 'pj');
+    d.append(el('h3', '', a), el('div', 'pj-sub', r ? `${f2.format(r.apurado_pct)}% das urnas apuradas · ${fInt.format(r.lula_votos + r.flavio_votos)} votos válidos até agora` : ''));
+    const g = el('div', 'pj-box'); d.append(g);
+    const pe = el('p', 'pj-pe');
+    if (p && !p.falta && p.l + p.f > 0) {
+      const tot = p.l + p.f, s = p.l - p.f;
+      pe.append('Projeção: ', el('b', '', `Lula ${f2.format((100 * p.l) / tot)}%`), ' × ', el('b', '', `${f2.format((100 * p.f) / tot)}% Flávio`), `, saldo de ${comp(Math.abs(s))} para ${s >= 0 ? 'Lula' : 'Flávio'}.`);
+    } else if (p && p.falta) pe.textContent = `Projeção indisponível: ${p.falta} estado(s) ainda sem urnas apuradas.`;
+    d.append(pe);
+    box.append(d);
+    return [g, a, p];
+  }).forEach(([g, a, p]) => grafico(g, a, hist.filter((h) => h.area === a), p, yMax));
+  const v = document.getElementById('veredito');
+  v.replaceChildren();
+  const pa = proj.get(sel.a), pb = proj.get(sel.b);
+  if (sel.a !== sel.b && pa && pb && !pa.falta && !pb.falta) {
+    const sa = pa.l - pa.f, sb = pb.l - pb.f, st = sa + sb;
+    const quem = (s) => (s >= 0 ? 'Lula' : 'Flávio Bolsonaro');
+    v.append(`Na projeção, ${sel.a} dá saldo de `, el('b', '', comp(Math.abs(sa))), ` para ${quem(sa)} e ${sel.b}, `, el('b', '', comp(Math.abs(sb))), ` para ${quem(sb)}. Somadas, as duas dão `, el('b', '', comp(Math.abs(st))), ` de vantagem para ${quem(st)}.`);
+  }
+}
+
+function desenhar() {
+  if (!atual.length) return;
+  const por = new Map(atual.map((r) => [r.area, r]));
+  const proj = projetar(atual);
+  cabecalho(por, proj);
+  mapa(por);
+  regioes(por);
+  estados(por);
+  projecao(proj);
+}
+
+// Leitura do TSE, direto no navegador
+async function baixar(uf) {
+  const r = await fetch(`${BASE}/${uf}/${uf}-c0001-e006258-u.json`, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`${uf}: ${r.status}`);
+  return r.json();
+}
+
+function ler(d) {
+  const v = { lula: 0, flavio: 0 };
+  (d.carg || []).forEach((cg) => (cg.agr || []).forEach((ag) => (ag.par || []).forEach((p) => (p.cand || []).forEach((c) => {
+    const k = c.nmu.includes('LULA') ? 'lula' : c.nmu.includes('FLAVIO') ? 'flavio' : null;
+    if (k) v[k] += Number(c.vap);
+  }))));
+  const s = d.s || {}, e = d.e || {};
+  return { ts: Number(s.ts || 0), st: Number(s.st || 0), te: Number(e.te || 0), est: Number(e.est || 0), lula: v.lula, flavio: v.flavio, hora: (d.hg || '').slice(0, 5) };
+}
+
+const r2 = (n) => Math.round(n * 100) / 100;
+function linha(area, sigla, nivel, grupo, x) {
+  const val = x.lula + x.flavio;
+  return { area, sigla, nivel, grupo, apurado_pct: x.ts ? r2((100 * x.st) / x.ts) : 0,
+    lula_pct: val ? r2((100 * x.lula) / val) : null, flavio_pct: val ? r2((100 * x.flavio) / val) : null,
+    lula_votos: x.lula, flavio_votos: x.flavio, eleitores: x.te, eleitores_apurados: x.est, tse_hora: x.hora };
+}
+
+function somar(xs) {
+  const t = { hora: xs.map((x) => x.hora).sort().pop() };
+  ['ts', 'st', 'te', 'est', 'lula', 'flavio'].forEach((k) => { t[k] = xs.reduce((a, x) => a + x[k], 0); });
+  return t;
+}
+
+function montar(brutos, hora) {
+  const d = Object.fromEntries(Object.entries(brutos).map(([uf, j]) => [uf, ler(j)]));
+  const rows = [linha('Brasil', 'BR', 'pais', null, d.br)];
+  REGIOES.forEach((g) => rows.push(linha(g, null, 'regiao', null, somar(UFS_REG[g].map((u) => d[u])))));
+  REGIOES.forEach((g) => UFS_REG[g].forEach((u) => rows.push(linha(NOME[u], u.toUpperCase(), 'estado', g, d[u]))));
+  rows.push(linha('Exterior', 'ZZ', 'exterior', null, d.zz));
+  rows[0].tse_hora = hora.slice(0, 5);
+  return rows;
+}
+
+function guardar(pontos) {
+  pontos.forEach((h) => {
+    const k = `${h.hora}|${h.area}`;
+    if (!vistos.has(k)) { vistos.add(k); hist.push(h); }
+  });
+  hist.sort((a, b) => (a.hora < b.hora ? -1 : a.hora > b.hora ? 1 : 0));
+}
+
+function salvarHist() {
+  try { localStorage.setItem(CHAVE_HIST, JSON.stringify(hist.map((h) => [h.hora, h.area, h.apurado_pct, h.lula_votos, h.flavio_votos]))); } catch (e) {}
+}
+
+async function carregarHist() {
+  const de = (arr) => arr.map(([hora, area, apurado_pct, lula_votos, flavio_votos]) => ({ hora, area, apurado_pct, lula_votos, flavio_votos }));
+  try { guardar(de(JSON.parse(localStorage.getItem(CHAVE_HIST)) || [])); } catch (e) {}
+  try { const r = await fetch('historico.json', { cache: 'no-store' }); if (r.ok) guardar(de(await r.json())); } catch (e) {}
+}
+
+const agora = () => new Date().toLocaleTimeString('pt-BR');
+function status(ok) {
+  const s = document.getElementById('status'), t = document.getElementById('status-txt');
+  s.classList.toggle('erro', !ok);
+  t.textContent = ok
+    ? `Ao vivo · números do TSE de ${ultima || '—'} · conferido às ${agora()}`
+    : `Sem resposta do TSE agora · últimos números de ${ultima ? ultima.slice(0, 5) : '—'} · tentando de novo`;
+}
+
+let ocupado = false;
+async function ciclo() {
+  if (ocupado) return;
+  ocupado = true;
+  try {
+    const br = await baixar('br');
+    const hora = br.hg || '';
+    if (hora && (!ultima || hora > ultima)) {
+      const outros = await Promise.all(OUTRAS.map(async (u) => [u, await baixar(u)]));
+      const brutos = Object.fromEntries(outros);
+      brutos.br = br;
+      atual = montar(brutos, hora);
+      guardar(atual.map((x) => ({ hora, area: x.area, apurado_pct: x.apurado_pct, lula_votos: x.lula_votos, flavio_votos: x.flavio_votos })));
+      salvarHist();
+      ultima = hora;
+      desenhar();
+    }
+    status(true);
+  } catch (e) {
+    status(false);
+  } finally {
+    ocupado = false;
+  }
+}
+
+let tempo;
+window.addEventListener('resize', () => { clearTimeout(tempo); tempo = setTimeout(desenhar, 150); });
+carregarHist().then(ciclo);
+setInterval(ciclo, 5000);
+</script>
+</body>
+</html>
